@@ -10,6 +10,19 @@ struct LibrarySyncResult {
     let skippedCount: Int
 }
 
+enum ExportProgressState {
+    case copying
+    case copied
+}
+
+struct ExportProgressUpdate {
+    let libraryID: UUID
+    let libraryName: String
+    let fileName: String
+    let destinationPath: String
+    let state: ExportProgressState
+}
+
 enum ExportEngineError: LocalizedError {
     case destinationRootMissing(String)
     case destinationRootNotDirectory(String)
@@ -24,7 +37,7 @@ enum ExportEngineError: LocalizedError {
     }
 }
 
-final class ExportEngine {
+final class ExportEngine: @unchecked Sendable {
     private let photoLibraryService: PhotoLibraryService
     private let manifestStore: ExportManifestStore
     private let fileManager: FileManager
@@ -40,7 +53,10 @@ final class ExportEngine {
         self.fileManager = fileManager
     }
 
-    func synchronize(library: LibraryConfiguration) async throws -> LibrarySyncResult {
+    func synchronize(
+        library: LibraryConfiguration,
+        progress: ((ExportProgressUpdate) async -> Void)? = nil
+    ) async throws -> LibrarySyncResult {
         try await photoLibraryService.ensureAuthorized()
         try validateRootFolderExists(library.outputFolderURL)
 
@@ -49,7 +65,7 @@ final class ExportEngine {
             source: library.assetSource,
             selectedSharedAlbumIDs: selectedSharedAlbumIDs
         )
-        var manifest = try await manifestStore.loadManifest()
+        let manifest = try await manifestStore.loadManifest()
         var libraryManifest = manifest.libraryManifest(for: library.id)
 
         let baselineDate = resolveBaselineDate(
@@ -104,10 +120,34 @@ final class ExportEngine {
                 )
 
                 do {
+                    if let progress {
+                        await progress(
+                            ExportProgressUpdate(
+                                libraryID: library.id,
+                                libraryName: library.name,
+                                fileName: destinationURL.lastPathComponent,
+                                destinationPath: destinationURL.path,
+                                state: .copying
+                            )
+                        )
+                    }
+
                     try await writeAssetResource(resource, destinationURL: destinationURL)
                     updateFileDates(for: asset, destinationURL: destinationURL)
                     outputPaths.append(destinationURL.path)
                     exportedResourceKeys.append(resourceKeys[index])
+
+                    if let progress {
+                        await progress(
+                            ExportProgressUpdate(
+                                libraryID: library.id,
+                                libraryName: library.name,
+                                fileName: destinationURL.lastPathComponent,
+                                destinationPath: destinationURL.path,
+                                state: .copied
+                            )
+                        )
+                    }
                 } catch {
                     if canSkipResourceFailure(error, for: resource) {
                         logger.warning("Skipping optional resource \(resource.originalFilename, privacy: .public) for asset \(asset.localIdentifier, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -131,8 +171,7 @@ final class ExportEngine {
             exportedCount += 1
         }
 
-        manifest.setLibraryManifest(libraryManifest, for: library.id)
-        try await manifestStore.saveManifest(manifest)
+        try await manifestStore.saveLibraryManifest(libraryManifest, for: library.id)
 
         return LibrarySyncResult(
             libraryID: library.id,
