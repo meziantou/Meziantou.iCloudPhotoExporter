@@ -8,7 +8,7 @@ struct ICloudPhotoExporterApp: App {
         MenuBarExtra {
             MenuBarStatusView(viewModel: viewModel)
         } label: {
-            Label(viewModel.menuBarTitle, systemImage: viewModel.menuBarSymbolName)
+            Image(systemName: viewModel.menuBarSymbolName)
         }
         .menuBarExtraStyle(.window)
 

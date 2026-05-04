@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Network
 import OSLog
+import Photos
 
 struct SyncErrorLogEntry: Identifiable {
     let id = UUID()
@@ -95,7 +96,14 @@ final class AppViewModel: ObservableObject {
 
             try applyLoginItemSetting(force: true)
             configureScheduler()
-            refreshSharedAlbums()
+            // Only refresh at startup if permission is already granted; otherwise the
+            // system dialog would appear unexpectedly before the user does anything.
+            // The Settings view's onAppear and the sync engine each request authorization
+            // at the right moment.
+            let authStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            if authStatus == .authorized || authStatus == .limited {
+                refreshSharedAlbums()
+            }
             runMissedScheduledSyncOnStartupIfNeeded()
         } catch {
             errorMessage = error.localizedDescription
