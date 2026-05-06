@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2C3D4E5F60718293A4B5C /* AboutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C /* AboutWindow.swift */; };
 		184FC007464A16288279E805 /* PhotoLibraryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E01F3A63F384B43F19D9239C /* PhotoLibraryService.swift */; };
 		342DB2CD2A7F19890730E236 /* OSLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D2D192CCFE6F18FAA4C5E902 /* OSLog.framework */; };
 		3A3DF61E31487876EE90AC0B /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C3B372D07709A391241276 /* LoginItemService.swift */; };
@@ -32,6 +33,7 @@
 /* Begin PBXFileReference section */
 		024E35BD16F3790361B5DDFB /* ConfigurationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConfigurationStore.swift; sourceTree = "<group>"; };
 		033EEB3D2F4239032401F27B /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Photos.framework; sourceTree = DEVELOPER_DIR; };
+		B1C2D3E4F5061728394A5B6C /* AboutWindow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutWindow.swift; sourceTree = "<group>"; };
 		31CB07878343920BCBA8760D /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = DEVELOPER_DIR; };
 		3369BA90DD05D448C49C5CAF /* ExportManifest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExportManifest.swift; sourceTree = "<group>"; };
 		4A34A2824AC8D3DDBDF57B71 /* ExportEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExportEngine.swift; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 				A3439A212030E2ED63BC7776 /* Services */,
 				24FBA77BEEA16E3F43708E05 /* ViewModels */,
 				CCD3119F323F7EED6DEA38AD /* ICloudPhotoExporterApp.swift */,
+				B1C2D3E4F5061728394A5B6C /* AboutWindow.swift */,
 				74B99D21582F9EA962382295 /* AppMenuCommands.swift */,
 				795DC74AA0E59CCA3B521236 /* MenuBarStatusView.swift */,
 				632AD8EA4B71A343297D14C9 /* SettingsView.swift */,
@@ -222,6 +225,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F60718293A4B5C /* AboutWindow.swift in Sources */,
 				F6142664075194F7AFBDD8C6 /* ICloudPhotoExporterApp.swift in Sources */,
 				ED9C500DBE102360514F8EE4 /* AppMenuCommands.swift in Sources */,
 				C3D76C7E28F0F1103A3B3079 /* MenuBarStatusView.swift in Sources */,

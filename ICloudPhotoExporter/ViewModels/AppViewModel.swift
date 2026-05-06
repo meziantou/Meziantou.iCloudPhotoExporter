@@ -17,6 +17,12 @@ private struct LibrarySyncOutcome: Sendable {
 
 @MainActor
 final class AppViewModel: ObservableObject {
+    private enum UpdateCheckTrigger {
+        case manual
+        case startup
+        case scheduled
+    }
+
     @Published var configuration: AppConfiguration = .default
     @Published var isSyncing: Bool = false
     @Published var isSchedulerPaused: Bool = false
@@ -34,7 +40,11 @@ final class AppViewModel: ObservableObject {
     @Published var syncRecentCopiedFiles: [String] = []
 
     var currentAppVersion: String {
-        updateCheckService.currentVersion
+        updateCheckService.currentVersionString
+    }
+
+    var appDisplayName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "iCloud Exporter"
     }
 
     var menuBarTitle: String {
@@ -51,11 +61,14 @@ final class AppViewModel: ObservableObject {
     private let sharedAlbumsPhotoLibraryService = PhotoLibraryService()
     private let networkStatusService = NetworkStatusService()
     private let updateCheckService = UpdateCheckService()
+    private let aboutWindowController = AboutWindowController()
     private let exportEngine = ExportEngine(
         photoLibraryService: PhotoLibraryService(),
         manifestStore: ExportManifestStore()
     )
     private let logger = Logger(subsystem: "com.meziantou.icloudphotoexporter", category: "AppViewModel")
+    private static let automaticUpdateCheckIntervalNanoseconds: UInt64 = 86_400_000_000_000
+    private var automaticUpdateCheckTask: Task<Void, Never>?
 
     private var didLoadConfiguration = false
     private var lastAppliedStartAtLogin: Bool?
@@ -82,6 +95,10 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    deinit {
+        automaticUpdateCheckTask?.cancel()
+    }
+
     func loadConfiguration() async {
         do {
             var loadedConfiguration = try await configurationStore.load()
@@ -105,6 +122,7 @@ final class AppViewModel: ObservableObject {
                 refreshSharedAlbums()
             }
             runMissedScheduledSyncOnStartupIfNeeded()
+            startAutomaticUpdateChecks()
         } catch {
             errorMessage = error.localizedDescription
             appendErrorLog("Configuration load failed: \(error.localizedDescription)")
@@ -205,6 +223,10 @@ final class AppViewModel: ObservableObject {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
+    func openAboutWindow() {
+        aboutWindowController.show(appName: appDisplayName, appVersion: currentAppVersion)
+    }
+
     func quitApplication() {
         NSApp.terminate(nil)
     }
@@ -215,30 +237,9 @@ final class AppViewModel: ObservableObject {
     }
 
     func checkForUpdates() {
-        guard !isCheckingForUpdates else {
-            return
-        }
-
-        isCheckingForUpdates = true
-        updateCheckError = nil
-
         Task { [weak self] in
             guard let self else { return }
-            do {
-                let result = try await updateCheckService.checkForUpdates()
-                await MainActor.run {
-                    self.updateCheckResult = result
-                    self.isCheckingForUpdates = false
-                    if result.isUpdateAvailable {
-                        NSWorkspace.shared.open(result.releaseURL)
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    self.updateCheckError = error.localizedDescription
-                    self.isCheckingForUpdates = false
-                }
-            }
+            await self.performUpdateCheck(trigger: .manual)
         }
     }
 
@@ -279,6 +280,79 @@ final class AppViewModel: ObservableObject {
             self?.runSyncNow()
         }
         exportScheduler.setPaused(isSchedulerPaused)
+    }
+
+    private func startAutomaticUpdateChecks() {
+        automaticUpdateCheckTask?.cancel()
+        automaticUpdateCheckTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            await self.performUpdateCheck(trigger: .startup)
+
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: Self.automaticUpdateCheckIntervalNanoseconds)
+                } catch {
+                    return
+                }
+
+                if Task.isCancelled {
+                    return
+                }
+
+                await self.performUpdateCheck(trigger: .scheduled)
+            }
+        }
+    }
+
+    private func performUpdateCheck(trigger: UpdateCheckTrigger) async {
+        guard !isCheckingForUpdates else {
+            return
+        }
+
+        isCheckingForUpdates = true
+        if trigger == .manual {
+            updateCheckError = nil
+        }
+
+        defer {
+            isCheckingForUpdates = false
+        }
+
+        do {
+            let result = try await updateCheckService.checkForUpdates()
+            updateCheckResult = result
+            updateCheckError = nil
+
+            if result.isUpdateAvailable {
+                suggestOpeningReleasePage(for: result)
+            }
+        } catch {
+            if trigger == .manual {
+                updateCheckError = error.localizedDescription
+            } else {
+                logger.error("Automatic update check failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func suggestOpeningReleasePage(for result: UpdateCheckResult) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Update Available"
+        alert.informativeText = """
+        Version \(result.latestVersion) is available (current: \(result.currentVersion)).
+        Do you want to open the GitHub release page?
+        """
+        alert.addButton(withTitle: "Open Release Page")
+        alert.addButton(withTitle: "Later")
+
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(result.releaseURL)
+        }
     }
 
     private func runSyncNowCore() async {

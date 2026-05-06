@@ -25,6 +25,8 @@ Menu bar macOS app (Swift + Xcode) that exports Apple Photos/iCloud assets to lo
 - Menu bar shows live sync progression, including currently copied file and recent copied files.
 - Menu bar shows an error indicator and recent error log when sync failures occur.
 - Optional start-at-login toggle (`SMAppService`).
+- About window with app name, version, repository, and author.
+- Update checks through GitHub releases (on startup, daily while running, and manually on demand).
 
 ## Build
 

@@ -95,6 +95,10 @@ struct MenuBarStatusView: View {
                 }
             }
 
+            Button("About iCloud Exporter") {
+                viewModel.openAboutWindow()
+            }
+
             Button(viewModel.isCheckingForUpdates ? "Checking for Updates…" : "Check for Updates") {
                 viewModel.checkForUpdates()
             }
