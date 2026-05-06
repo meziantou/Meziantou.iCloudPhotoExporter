@@ -5,6 +5,12 @@ struct AppMenuCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Exporter") {
+            Button("About iCloud Exporter") {
+                viewModel.openAboutWindow()
+            }
+
+            Divider()
+
             Button("Sync Now") {
                 viewModel.runSyncNow()
             }

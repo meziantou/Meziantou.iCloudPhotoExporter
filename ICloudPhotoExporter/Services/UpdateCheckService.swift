@@ -1,24 +1,64 @@
-import AppKit
 import Foundation
-import OSLog
+
+struct SemanticVersion: Comparable, CustomStringConvertible {
+    let major: Int
+    let minor: Int
+    let patch: Int
+
+    init?(_ versionText: String) {
+        let trimmed = versionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.hasPrefix("v") ? String(trimmed.dropFirst()) : trimmed
+        let components = normalized.split(separator: ".", omittingEmptySubsequences: false)
+
+        guard components.count == 3,
+              let major = Int(components[0]), major >= 0,
+              let minor = Int(components[1]), minor >= 0,
+              let patch = Int(components[2]), patch >= 0
+        else {
+            return nil
+        }
+
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+    }
+
+    static func < (lhs: SemanticVersion, rhs: SemanticVersion) -> Bool {
+        if lhs.major != rhs.major {
+            return lhs.major < rhs.major
+        }
+
+        if lhs.minor != rhs.minor {
+            return lhs.minor < rhs.minor
+        }
+
+        return lhs.patch < rhs.patch
+    }
+
+    var description: String {
+        "\(major).\(minor).\(patch)"
+    }
+}
 
 struct UpdateCheckResult {
-    let currentVersion: String
-    let latestVersion: String
+    let currentVersion: SemanticVersion
+    let latestVersion: SemanticVersion
     let releaseURL: URL
     var isUpdateAvailable: Bool {
-        latestVersion.compare(currentVersion, options: .numeric) == .orderedDescending
+        latestVersion > currentVersion
     }
 }
 
 final class UpdateCheckService {
-    private let logger = Logger(subsystem: "com.meziantou.icloudphotoexporter", category: "UpdateCheckService")
-
-    var currentVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0"
+    var currentVersionString: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }
 
     func checkForUpdates() async throws -> UpdateCheckResult {
+        guard let currentVersion = SemanticVersion(currentVersionString) else {
+            throw UpdateCheckError.invalidCurrentVersion(currentVersionString)
+        }
+
         let url = URL(string: "https://api.github.com/repos/meziantou/Meziantou.iCloudPhotoExporter/releases/latest")!
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -31,8 +71,9 @@ final class UpdateCheckService {
         }
 
         let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-        let tagName = release.tagName
-        let latestVersion = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
+        guard let latestVersion = SemanticVersion(release.tagName) else {
+            throw UpdateCheckError.invalidLatestVersion(release.tagName)
+        }
 
         guard let releaseURL = URL(string: release.htmlURL) else {
             throw UpdateCheckError.invalidReleaseURL
@@ -49,6 +90,8 @@ final class UpdateCheckService {
 enum UpdateCheckError: LocalizedError {
     case unexpectedStatusCode(Int)
     case invalidReleaseURL
+    case invalidCurrentVersion(String)
+    case invalidLatestVersion(String)
 
     var errorDescription: String? {
         switch self {
@@ -56,6 +99,10 @@ enum UpdateCheckError: LocalizedError {
             return "GitHub API returned status \(code)."
         case .invalidReleaseURL:
             return "The release URL returned by GitHub is invalid."
+        case .invalidCurrentVersion(let version):
+            return "Invalid current app version '\(version)'. Expected format is major.minor.patch."
+        case .invalidLatestVersion(let version):
+            return "Invalid release version '\(version)'. Expected format is vmajor.minor.patch."
         }
     }
 }
